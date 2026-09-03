@@ -14,7 +14,7 @@ class SmokeTest {
         rule.waitForIdle()
         val context=InstrumentationRegistry.getInstrumentation().targetContext
         val dir=File(context.getExternalFilesDir(null),"screenshots").apply {mkdirs()}
-        InstrumentationRegistry.getInstrumentation().uiAutomation.takeScreenshot()?.let {bitmap -> File(dir,"$name.png").outputStream().use {bitmap.compress(Bitmap.CompressFormat.PNG,100,it)};bitmap.recycle()}
+        checkNotNull(InstrumentationRegistry.getInstrumentation().uiAutomation.takeScreenshot()).let {bitmap -> File(dir,"$name.png").outputStream().use {bitmap.compress(Bitmap.CompressFormat.PNG,100,it)};bitmap.recycle()}
     }
     @Test fun firstRunSettingsAndOfflineControls() {
         rule.runOnIdle {

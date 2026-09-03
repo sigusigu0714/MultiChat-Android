@@ -66,7 +66,7 @@ class AppModel(app: Application) : AndroidViewModel(app) {
     }
     fun changeSettings(value: Settings) { store.put("settings",value.json().toString()); settings=value; if(!value.ttsEnabled) speech?.stop() }
     fun saveProfile(value: Profile) {
-        value.validated(); operationGeneration++; operationJob?.cancel(); busy=false; disconnectChat(); disconnectObs(); revision++
+        value.validated(); operationGeneration++; operationJob?.cancel(); busy=false; disconnectChat(); disconnectObs(); revision++; events=events.map { it.copy(translating=false) }
         if(value.serverURL != profile.serverURL) {
             channels.forEach { store.put("alert-${it.id}",""); if(it.accountID.isNotBlank()) store.put("kick-${it.accountID}","") }
             channels = emptyList(); saveChannels(); events=emptyList(); dedupe.clear(); hiddenDuplicates=0
@@ -184,7 +184,7 @@ class AppModel(app: Application) : AndroidViewModel(app) {
             } catch(_: Exception) { /* Keep saved login through temporary connectivity failures. */ }
         }
     }
-    fun clearTwitch() { revision++; store.put("pending-auth",""); listOf("twitch-token","twitch-user-id","twitch-login").forEach { store.put(it,"") }; twitchLogin="" }
+    fun clearTwitch() { revision++; events=events.map { it.copy(translating=false) }; store.put("pending-auth",""); listOf("twitch-token","twitch-user-id","twitch-login").forEach { store.put(it,"") }; twitchLogin="" }
     fun sendComment(platform: Platform, target: String, account: String, message: String, onSent: () -> Unit = {}) {
         if(sending) return
         val clean=message.trim()
