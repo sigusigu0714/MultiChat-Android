@@ -249,7 +249,7 @@ private fun Platform.color() = when(this) { Platform.TWITCH -> Color(0xFFAC85FF)
         Text("ご自身のOBSリレーと管理者トークンを登録してください。",style=MaterialTheme.typography.bodyLarge)
         Field("OBSリレーURL（WSS）",url,{url=it},tag="obs-url"); Field(if(vm.hasObsToken()) "新しい管理者トークン（登録済み）" else "管理者トークン",token,{token=it},secret=true,tag="obs-token")
         if(error.isNotBlank()) Text(error,color=MaterialTheme.colorScheme.error)
-        Button(onClick={runCatching {require(token.isNotBlank() || (vm.hasObsToken() && url.trim()==vm.profile.obsRelayURL));vm.saveProfile(vm.profile.copy(obsRelayURL=url.trim()));if(token.isNotBlank()) vm.saveObsToken(token);token="";vm.notice="OBS設定を保存しました"}.onFailure {error="WSSのURLと管理者トークンを確認してください"}},modifier=Modifier.fillMaxWidth()) {Text("保存して接続")}
+        Button(onClick={runCatching {require(url.isNotBlank());require(token.isNotBlank() || (vm.hasObsToken() && url.trim()==vm.profile.obsRelayURL));vm.saveProfile(vm.profile.copy(obsRelayURL=url.trim()));if(token.isNotBlank()) vm.saveObsToken(token);token="";vm.notice="OBS設定を保存しました"}.onFailure {error="WSSのURLと管理者トークンを確認してください"}},modifier=Modifier.fillMaxWidth()) {Text("保存して接続")}
         OutlinedButton(onClick={vm.saveObsToken("");token=""},modifier=Modifier.fillMaxWidth()) {Text("トークンを削除して切断")}
     }
 }

@@ -38,7 +38,7 @@ data class Profile(val serverURL: String = "", val obsRelayURL: String = "", val
 fun validEndpoint(value: String, scheme: String, label: String) {
     if (value.isBlank()) return
     val uri = runCatching { URI(value) }.getOrNull()
-    require(uri != null && uri.scheme == scheme && !uri.host.isNullOrBlank() && uri.rawUserInfo == null && uri.rawQuery == null && uri.rawFragment == null) { "$label は認証情報やクエリを含まない $scheme:// URLにしてください" }
+    require(uri != null && uri.scheme == scheme && !uri.host.isNullOrBlank() && uri.rawUserInfo == null && uri.rawQuery == null && uri.rawFragment == null && uri.port in -1..65535 && uri.port != 0) { "$label は認証情報やクエリを含まない $scheme:// URLにしてください" }
 }
 fun safeWidgetURL(value: String): Boolean = runCatching { URI(value).let { it.scheme == "https" && !it.host.isNullOrBlank() && it.userInfo == null } }.getOrDefault(false)
 

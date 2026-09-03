@@ -1,0 +1,46 @@
+name: Signed Android distribution
+on:
+  workflow_dispatch:
+permissions:
+  contents: read
+  actions: read
+jobs:
+  release:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@v4
+      - name: Require passing verification on this commit
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh api "repos/${GITHUB_REPOSITORY}/actions/workflows/android.yml/runs?head_sha=${GITHUB_SHA}&status=success" --jq '.total_count' | grep -qv '^0$'
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.11.1'
+      - uses: android-actions/setup-android@v3
+      - name: Build signed APK
+        env:
+          KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+          ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          ANDROID_KEYSTORE: ${{ runner.temp }}/multichat-release.jks
+        run: |
+          test -n "$KEYSTORE_BASE64"
+          printf '%s' "$KEYSTORE_BASE64" | base64 --decode > "$ANDROID_KEYSTORE"
+          chmod 600 "$ANDROID_KEYSTORE"
+          trap 'rm -f "$ANDROID_KEYSTORE"' EXIT
+          gradle testReleaseUnitTest lintRelease assembleRelease --no-daemon
+          mkdir -p distribution-output
+          cp app/build/outputs/apk/release/app-release.apk distribution-output/MultiChat-Android.apk
+          "$ANDROID_HOME/build-tools/35.0.0/apksigner" verify --verbose --print-certs distribution-output/MultiChat-Android.apk
+          python3 tools/audit_apk.py distribution-output/MultiChat-Android.apk
+          cd distribution-output
+          sha256sum MultiChat-Android.apk > SHA256SUMS.txt
+      - uses: actions/upload-artifact@v4
+        with:
+          name: MultiChat-Android-distribution
+          path: distribution-output/

@@ -38,6 +38,7 @@ class AppModel(app: Application) : AndroidViewModel(app) {
     private val api = NetworkApi()
     private val translator = LocalTranslator()
     private val translationSlots = Semaphore(2)
+    private val pendingTranslations = mutableSetOf<String>()
     private val dedupe = EventDeduplicator()
     private var chatSocket: WebSocket? = null
     private var obsSocket: WebSocket? = null
@@ -85,6 +86,7 @@ class AppModel(app: Application) : AndroidViewModel(app) {
     fun refreshAlerts() { alertRevision++ }
     private fun upsert(channel: Channel) {
         val old=channels.firstOrNull { (channel.accountID.isNotBlank() && it.accountID==channel.accountID) || (it.platform==channel.platform && it.identifier.equals(channel.identifier,true)) || (channel.watchID.isNotBlank() && it.platform==channel.platform && it.watchID==channel.watchID) }
+        if(old != null && old.accountID.isNotBlank() && channel.accountID.isBlank()) return
         if(old != null) channels=channels.map { if(it.id==old.id) channel.copy(id=old.id,enabled=old.enabled,alertProvider=old.alertProvider,accountID=channel.accountID.ifBlank { old.accountID },watchID=channel.watchID.ifBlank { old.watchID }) else it }
         else if(channels.size<10) channels=channels+channel
         saveChannels()
@@ -115,7 +117,7 @@ class AppModel(app: Application) : AndroidViewModel(app) {
     fun removeChannel(channel: Channel) = guarded {
         val version=revision
         if(channel.watchID.isNotBlank()) api.request(endpoint("/api/${channel.platform.wire}/watch-channels/${encode(channel.watchID)}"),"DELETE")
-        if(channel.accountID.isNotBlank()) api.request(endpoint("/api/accounts/${encode(channel.accountID)}"),"DELETE")
+        else if(channel.accountID.isNotBlank()) api.request(endpoint("/api/accounts/${encode(channel.accountID)}"),"DELETE")
         if(version!=revision) return@guarded
         channels=channels.filterNot { it.id==channel.id }; saveChannels()
         store.put("alert-${channel.id}",""); if(channel.accountID.isNotBlank()) store.put("kick-${channel.accountID}",""); alertRevision++
@@ -163,7 +165,7 @@ class AppModel(app: Application) : AndroidViewModel(app) {
             } catch(e: CancellationException) { throw e } catch(_: Exception) { notice="ログインを確認できませんでした。連携をやり直してください" }
         }
     }
-    fun clearTwitch() { listOf("twitch-token","twitch-user-id","twitch-login").forEach { store.put(it,"") }; twitchLogin="" }
+    fun clearTwitch() { revision++; store.put("pending-auth",""); listOf("twitch-token","twitch-user-id","twitch-login").forEach { store.put(it,"") }; twitchLogin="" }
     fun sendComment(platform: Platform, target: String, account: String, message: String, onSent: () -> Unit = {}) {
         if(sending) return
         val clean=message.trim()
@@ -212,14 +214,15 @@ class AppModel(app: Application) : AndroidViewModel(app) {
         if(settings.autoTranslate && event.translation.isBlank()) translate(event)
     }
     fun translate(event: Event) {
-        if(event.translating || event.translation.isNotBlank()) return
+        if(event.translating || event.translation.isNotBlank() || event.key in pendingTranslations || pendingTranslations.size >= 24) return
+        pendingTranslations.add(event.key)
         val version=revision
         events=events.map { if(it.key==event.key) it.copy(translating=true) else it }
         viewModelScope.launch {
             var translated=""
             try { translated=translationSlots.withPermit { translator.japanese(event.message) } }
             catch(e: CancellationException) { throw e } catch(_: Exception) { if(!settings.autoTranslate) notice="翻訳できませんでした。通信状態を確認してください" }
-            finally { if(version==revision) events=events.map { if(it.key==event.key) it.copy(translation=translated,translating=false) else it } }
+            finally { pendingTranslations.remove(event.key); if(version==revision) events=events.map { if(it.key==event.key) it.copy(translation=translated,translating=false) else it } }
         }
     }
     private fun speak(text: String) { if(speechReady) { speech?.setSpeechRate(settings.speechRate); speech?.speak(text,TextToSpeech.QUEUE_ADD,null,java.util.UUID.randomUUID().toString()) } }
