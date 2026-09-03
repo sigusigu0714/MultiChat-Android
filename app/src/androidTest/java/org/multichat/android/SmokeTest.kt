@@ -17,6 +17,12 @@ class SmokeTest {
         checkNotNull(InstrumentationRegistry.getInstrumentation().uiAutomation.takeScreenshot()).let {bitmap -> File(dir,"$name.png").outputStream().use {bitmap.compress(Bitmap.CompressFormat.PNG,100,it)};bitmap.recycle()}
     }
     @Test fun firstRunSettingsAndOfflineControls() {
+        // The AOSP launcher can show an unrelated ANR during emulator cold boot.
+        // Stop only the launcher; never dismiss or suppress an error from this app.
+        val launcherStop=InstrumentationRegistry.getInstrumentation().uiAutomation.executeShellCommand("am force-stop com.android.launcher3")
+        android.os.ParcelFileDescriptor.AutoCloseInputStream(launcherStop).use { it.readBytes() }
+        android.os.SystemClock.sleep(500)
+        rule.waitForIdle()
         rule.runOnIdle {
             assertEquals(Profile(),rule.activity.model.profile)
             assertFalse(rule.activity.model.hasObsToken())
