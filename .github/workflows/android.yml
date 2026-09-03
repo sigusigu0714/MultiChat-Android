@@ -3,6 +3,9 @@ on:
   workflow_dispatch:
   push:
     branches: [main]
+concurrency:
+  group: android-${{ github.ref }}
+  cancel-in-progress: true
 permissions:
   contents: read
 jobs:
@@ -21,8 +24,6 @@ jobs:
       - uses: android-actions/setup-android@v3
       - name: Unit tests, lint and APK
         run: gradle testDebugUnitTest lintDebug assembleDebug assembleDebugAndroidTest --no-daemon
-      - name: Generate portable Gradle wrapper
-        run: gradle wrapper --gradle-version 8.11.1 --distribution-type bin
       - uses: actions/upload-artifact@v4
         if: always()
         with:
