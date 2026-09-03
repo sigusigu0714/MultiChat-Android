@@ -136,6 +136,7 @@ private fun Platform.color() = when(this) { Platform.TWITCH -> Color(0xFFAC85FF)
     }
 }
 @Composable private fun EventRow(event: Event, settings: Settings, translate: ()->Unit) {
+    LaunchedEffect(settings.autoTranslate,event.key) { if(settings.autoTranslate && event.translation.isBlank()) translate() }
     val padding=when(settings.density) { "compact"->8.dp;"comfortable"->18.dp;else->12.dp }
     Card(colors=CardDefaults.cardColors(containerColor=if(event.isAlert) event.platform.color().copy(alpha=.14f) else MaterialTheme.colorScheme.surfaceContainer),shape=RoundedCornerShape(14.dp)) {
         Column(Modifier.fillMaxWidth().padding(padding),verticalArrangement=Arrangement.spacedBy(5.dp)) {

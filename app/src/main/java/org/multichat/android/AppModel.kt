@@ -45,6 +45,9 @@ class AppModel(app: Application) : AndroidViewModel(app) {
     private var chatGeneration = 0
     private var obsGeneration = 0
     private var revision = 0
+    private var operationGeneration = 0
+    private var operationJob: Job? = null
+    private var validationJob: Job? = null
     private var chatRetry: Job? = null
     private var obsRetry: Job? = null
     private var foreground = false
@@ -58,11 +61,12 @@ class AppModel(app: Application) : AndroidViewModel(app) {
     private fun guarded(block: suspend () -> Unit) {
         if(busy) return
         busy = true
-        viewModelScope.launch { try { block() } catch(e: CancellationException) { throw e } catch(e: Exception) { notice = if(e is ApiFailure) e.message.orEmpty() else "処理できませんでした。設定と通信状態を確認してください" } finally { busy = false } }
+        val operation=++operationGeneration
+        operationJob=viewModelScope.launch { try { block() } catch(e: CancellationException) { throw e } catch(e: Exception) { notice = if(e is ApiFailure) e.message.orEmpty() else "処理できませんでした。設定と通信状態を確認してください" } finally { if(operation==operationGeneration) busy = false } }
     }
     fun changeSettings(value: Settings) { store.put("settings",value.json().toString()); settings=value; if(!value.ttsEnabled) speech?.stop() }
     fun saveProfile(value: Profile) {
-        value.validated(); disconnectChat(); disconnectObs(); revision++
+        value.validated(); operationGeneration++; operationJob?.cancel(); busy=false; disconnectChat(); disconnectObs(); revision++
         if(value.serverURL != profile.serverURL) {
             channels.forEach { store.put("alert-${it.id}",""); if(it.accountID.isNotBlank()) store.put("kick-${it.accountID}","") }
             channels = emptyList(); saveChannels(); events=emptyList(); dedupe.clear(); hiddenDuplicates=0
@@ -73,7 +77,7 @@ class AppModel(app: Application) : AndroidViewModel(app) {
         changeSettings(settings.copy(setupDone=true))
         if(foreground) { connectChat(); connectObs(); syncChannels() }
     }
-    fun start() { if(foreground) return; foreground=true; connectChat(); connectObs(); if(profile.serverURL.isNotBlank()) syncChannels() }
+    fun start() { if(foreground) return; foreground=true; restoreTwitch(); connectChat(); connectObs(); if(profile.serverURL.isNotBlank()) syncChannels() }
     fun stop() { foreground=false; disconnectChat(); disconnectObs(); speech?.stop() }
     fun reconnect() { disconnectChat(); connectChat(); syncChannels() }
     private fun endpoint(path: String) = URI(profile.serverURL).resolve(path).toASCIIString()
@@ -165,6 +169,21 @@ class AppModel(app: Application) : AndroidViewModel(app) {
             } catch(e: CancellationException) { throw e } catch(_: Exception) { notice="ログインを確認できませんでした。連携をやり直してください" }
         }
     }
+    private fun restoreTwitch() {
+        val token=store.get("twitch-token")
+        if(token.isBlank() || validationJob?.isActive==true) return
+        val version=revision
+        validationJob=viewModelScope.launch {
+            try {
+                val j=JSONObject(api.request("https://id.twitch.tv/oauth2/validate",headers=mapOf("Authorization" to "OAuth $token")))
+                if(version!=revision || token!=store.get("twitch-token")) return@launch
+                if(j.string("client_id")!=profile.twitchClientID || j.string("user_id").isBlank()) { clearTwitch(); return@launch }
+                store.put("twitch-user-id",j.string("user_id")); store.put("twitch-login",j.string("login")); twitchLogin=j.string("login")
+            } catch(e: CancellationException) { throw e } catch(e: ApiFailure) {
+                if(e.code==401 && version==revision && token==store.get("twitch-token")) clearTwitch()
+            } catch(_: Exception) { /* Keep saved login through temporary connectivity failures. */ }
+        }
+    }
     fun clearTwitch() { revision++; store.put("pending-auth",""); listOf("twitch-token","twitch-user-id","twitch-login").forEach { store.put(it,"") }; twitchLogin="" }
     fun sendComment(platform: Platform, target: String, account: String, message: String, onSent: () -> Unit = {}) {
         if(sending) return
@@ -208,7 +227,7 @@ class AppModel(app: Application) : AndroidViewModel(app) {
         if(!dedupe.accept(event,settings.integratedDedupe,settings.duplicateWindow)) { if(event.kind!="system") hiddenDuplicates++; return }
         val match=channels.firstOrNull { it.platform==event.platform && (it.identifier.removePrefix("@").equals(event.channelName.removePrefix("@"),true) || it.name.equals(event.channelName,true)) }
         if(match?.enabled==false) return
-        events=(events+event).sortedBy { it.timestamp }.takeLast(1000)
+        events=(events.filterNot { it.key==event.key }+event).sortedBy { it.timestamp }.takeLast(1000)
         speechText(event,settings)?.let { speak(it) }
         if(event.isAlert) notifyAlert(event)
         if(settings.autoTranslate && event.translation.isBlank()) translate(event)
