@@ -50,9 +50,15 @@ class MainActivity : ComponentActivity() {
 class AlertHost(context: android.content.Context) : FrameLayout(context) {
     private val widgets=mutableMapOf<String,Pair<String,WebView>>()
     private var revision=-1
+    private var paused=false
+    private var savedURLs=emptyMap<String,String>()
+    private var savedVisible=false
+    private var savedRevision=-1
     init { importantForAccessibility=IMPORTANT_FOR_ACCESSIBILITY_NO_HIDE_DESCENDANTS }
     override fun dispatchTouchEvent(event: MotionEvent): Boolean = false
     fun update(urls: Map<String,String>, newRevision: Int, visible: Boolean) {
+        savedURLs=urls; savedVisible=visible; savedRevision=newRevision
+        if(paused) return
         alpha=if(visible) 1f else 0f
         (widgets.keys-urls.keys).forEach { key -> widgets.remove(key)?.second?.let { removeView(it); it.destroy() } }
         urls.forEach { (key,url) ->
@@ -76,7 +82,7 @@ class AlertHost(context: android.content.Context) : FrameLayout(context) {
         }
         revision=newRevision
     }
-    fun pause() { widgets.values.forEach { it.second.onPause() }; visibility=GONE }
-    fun resume() { visibility=VISIBLE; widgets.values.forEach { it.second.onResume() } }
-    fun destroy() { widgets.values.forEach { it.second.destroy() }; widgets.clear(); removeAllViews() }
+    fun pause() { paused=true; widgets.values.forEach { removeView(it.second); it.second.stopLoading(); it.second.destroy() }; widgets.clear(); removeAllViews(); visibility=GONE }
+    fun resume() { paused=false; visibility=VISIBLE; update(savedURLs,savedRevision,savedVisible) }
+    fun destroy() { widgets.values.forEach { removeView(it.second); it.second.destroy() }; widgets.clear(); removeAllViews() }
 }

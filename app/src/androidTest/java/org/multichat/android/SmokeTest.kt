@@ -17,6 +17,12 @@ class SmokeTest {
         InstrumentationRegistry.getInstrumentation().uiAutomation.takeScreenshot()?.let {bitmap -> File(dir,"$name.png").outputStream().use {bitmap.compress(Bitmap.CompressFormat.PNG,100,it)};bitmap.recycle()}
     }
     @Test fun firstRunSettingsAndOfflineControls() {
+        rule.runOnIdle {
+            assertEquals(Profile(),rule.activity.model.profile)
+            assertFalse(rule.activity.model.hasObsToken())
+            assertTrue(rule.activity.model.channels.isEmpty())
+            assertEquals("",rule.activity.model.twitchLogin)
+        }
         rule.onNodeWithTag("server-url").assertTextContains("")
         screenshot("01-setup")
         rule.onNodeWithTag("server-url").performTextInput("http://invalid.example.com")
@@ -44,6 +50,12 @@ class SmokeTest {
         rule.onNodeWithText("接続セットアップ").assertExists()
         screenshot("05-settings")
         rule.runOnIdle {
+            val host=AlertHost(rule.activity)
+            host.update(mapOf("fixture" to "https://example.invalid/widget"),0,true)
+            assertEquals(1,host.childCount)
+            host.pause();assertEquals(0,host.childCount)
+            host.resume();assertEquals(1,host.childCount)
+            host.destroy()
             val context=rule.activity
             val store=SecureStore(context)
             store.put("test-secret","test-only-value")

@@ -217,9 +217,10 @@ class AppModel(app: Application) : AndroidViewModel(app) {
         chatSocket=api.client.newWebSocket(Request.Builder().url(url).build(),object: WebSocketListener() {
             override fun onOpen(ws: WebSocket,response: Response) { viewModelScope.launch { if(generation==chatGeneration) chatStatus="接続済み" } }
             override fun onMessage(ws: WebSocket,text: String) { if(text.length>262144) return; viewModelScope.launch { if(generation==chatGeneration) runCatching { receive(Event.parse(JSONObject(text))) } } }
+            override fun onMessage(ws: WebSocket,bytes: okio.ByteString) { if(bytes.size<=262144) onMessage(ws,bytes.utf8()) }
             override fun onFailure(ws: WebSocket,t: Throwable,response: Response?) { retryChat(generation) }
             override fun onClosed(ws: WebSocket,code: Int,reason: String) { retryChat(generation) }
-            override fun onClosing(ws: WebSocket,code: Int,reason: String) { ws.close(code,null) }
+            override fun onClosing(ws: WebSocket,code: Int,reason: String) { ws.close(1000,null) }
         })
     }
     private fun retryChat(generation: Int) { viewModelScope.launch { if(generation!=chatGeneration) return@launch; chatSocket=null; chatStatus="再接続待ち"; chatRetry?.cancel(); chatRetry=viewModelScope.launch { delay(3000); if(generation==chatGeneration) connectChat() } } }
@@ -275,9 +276,10 @@ class AppModel(app: Application) : AndroidViewModel(app) {
                     }
                 }
             } }
+            override fun onMessage(ws: WebSocket,bytes: okio.ByteString) { if(bytes.size<=262144) onMessage(ws,bytes.utf8()) }
             override fun onFailure(ws: WebSocket,t: Throwable,response: Response?) { retryObs(generation) }
             override fun onClosed(ws: WebSocket,code: Int,reason: String) { retryObs(generation) }
-            override fun onClosing(ws: WebSocket,code: Int,reason: String) { ws.close(code,null) }
+            override fun onClosing(ws: WebSocket,code: Int,reason: String) { ws.close(1000,null) }
         })
     }
     private fun retryObs(generation: Int) { viewModelScope.launch { if(generation!=obsGeneration) return@launch; obsSocket=null; obs=ObsState(status="再接続待ち"); obsRetry?.cancel(); obsRetry=viewModelScope.launch { delay(3000); if(generation==obsGeneration) connectObs() } } }
