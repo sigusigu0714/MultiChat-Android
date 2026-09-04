@@ -48,7 +48,7 @@ class MainActivity : ComponentActivity() {
     }
 }
 class AlertHost(context: android.content.Context) : FrameLayout(context) {
-    private val widgets=mutableMapOf<String,Pair<String,WebView>>()
+    private val widgets=mutableMapOf<String,Pair<String,AlertWidget>>()
     private var revision=-1
     private var paused=false
     private var savedURLs=emptyMap<String,String>()
@@ -66,16 +66,9 @@ class AlertHost(context: android.content.Context) : FrameLayout(context) {
             if(old==null || old.first!=url) {
                 old?.second?.let { removeView(it); it.destroy() }
                 if(safeWidgetURL(url)) {
-                    val web=WebView(context).apply {
-                        setBackgroundColor(Color.TRANSPARENT)
-                        settings.javaScriptEnabled=true; settings.domStorageEnabled=true
-                        settings.mediaPlaybackRequiresUserGesture=false
-                        settings.allowFileAccess=false; settings.allowContentAccess=false
-                        settings.mixedContentMode=android.webkit.WebSettings.MIXED_CONTENT_NEVER_ALLOW
-                        isFocusable=false; isClickable=false
-                        webViewClient=object: WebViewClient() { override fun shouldOverrideUrlLoading(view: WebView, request: WebResourceRequest) = !safeWidgetURL(request.url.toString()) }
-                        loadUrl(url)
-                    }
+                    val host=java.net.URI(url).host.lowercase()
+                    val web=AlertWidget(context,host=="streamelements.com" || host.endsWith(".streamelements.com"))
+                    web.loadUrl(url)
                     widgets[key]=url to web; addView(web,LayoutParams(-1,-1))
                 }
             } else if(revision!=newRevision) old.second.reload()

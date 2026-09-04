@@ -87,5 +87,34 @@ class SmokeTest {
             assertTrue(vm.channels.isEmpty())
             assertEquals("",vm.store.get("kick-bad"))
         }
+        // A small alert on a large transparent desktop canvas, using a real WebView.
+        lateinit var widget: AlertWidget
+        lateinit var root: android.widget.FrameLayout
+        rule.runOnIdle {
+            root=rule.activity.findViewById(android.R.id.content)
+            widget=AlertWidget(rule.activity,true)
+            root.addView(widget,android.widget.FrameLayout.LayoutParams(-1,-1))
+            widget.setBackgroundColor(android.graphics.Color.WHITE)
+            widget.web.loadDataWithBaseURL("https://streamelements.com/", """
+                <!doctype html><html><head><meta name="viewport" content="width=device-width, initial-scale=1"><style>
+                html,body {margin:0;background:transparent;width:1920px;height:1080px;}
+                #alert {position:absolute;left:70px;top:440px;width:500px;height:210px;background:#163955;color:white;border:4px solid #25dfa6;box-sizing:border-box;}
+                .media {width:140px;height:120px;margin:12px auto;background:#f5a34c;border-radius:28px;}
+                p {font:24px sans-serif;margin:0;text-align:center;}
+                </style></head><body><div id="alert"><div class="media"></div><p>ALERT CONTENT</p></div>
+                <div style="opacity:0;position:absolute;width:1920px;height:1080px;background:red">HIDDEN</div></body></html>
+            """, "text/html","UTF-8",null)
+        }
+        rule.waitUntil(15000) { widget.fittedContent != null }
+        rule.runOnIdle {
+            val rect=checkNotNull(widget.fittedContent)
+            assertTrue(rect.width()>widget.width*0.8f)
+            assertTrue(rect.height()>widget.height*0.1f)
+            assertTrue(rect.left>=0 && rect.top>=0 && rect.right<=widget.width && rect.bottom<=widget.height)
+            assertEquals(widget.width/2f,rect.centerX(),2f)
+            assertEquals(widget.height/2f,rect.centerY(),2f)
+        }
+        screenshot("07-alert-content")
+        rule.runOnIdle { root.removeView(widget);widget.destroy() }
     }
 }
