@@ -10,6 +10,7 @@ import java.util.UUID
 class WidgetQueueSession(private val status: (String) -> Unit) {
     private val players = mutableMapOf<String, AlertWidget>()
     private var failed = false
+    private var hasPassThrough = false
     private val queue: AlertPlaybackQueue = AlertPlaybackQueue(object : AlertPlaybackQueue.Player {
         override fun start(ticket: AlertPlaybackQueue.Ticket) {
             if(failed) return
@@ -41,6 +42,11 @@ class WidgetQueueSession(private val status: (String) -> Unit) {
                     val event=JSONObject(raw);val seq=event.optLong("sequence")
                     when(event.optString("type")) {
                         "ready" -> report()
+                        "unsupported" -> {
+                            queue.unregister(id)
+                            widget.alpha=1f
+                            hasPassThrough=true;report()
+                        }
                         "fault" -> fault()
                         "stalled" -> if(queue.active()?.source==id && queue.active()?.sequence==seq) status("通知の終了待ちが長くなっています。停止した場合は設定から再読み込みしてください。")
                         "request" -> if(seq in 1..9007199254740991L) {
@@ -63,7 +69,7 @@ class WidgetQueueSession(private val status: (String) -> Unit) {
         return true
     }
     private fun report() {
-        if(!failed) status("順番再生：${if(queue.active()!=null) "再生中" else "待機中"}・待ち ${queue.waitingCount()} 件")
+        if(!failed) status(if(hasPassThrough) "順番再生：一部は通常表示・その他は順番再生（待ち ${queue.waitingCount()} 件）" else "順番再生：${if(queue.active()!=null) "再生中" else "待機中"}・待ち ${queue.waitingCount()} 件")
     }
     private fun fault() {
         if(failed)return
