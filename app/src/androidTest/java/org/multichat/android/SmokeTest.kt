@@ -87,6 +87,8 @@ class SmokeTest {
             assertTrue(vm.channels.isEmpty())
             assertEquals("",vm.store.get("kick-bad"))
         }
+        rule.onNodeWithContentDescription("閉じる").performClick()
+        rule.waitForIdle()
         // A small alert on a large transparent desktop canvas, using a real WebView.
         lateinit var widget: AlertWidget
         lateinit var root: android.widget.FrameLayout
@@ -114,6 +116,7 @@ class SmokeTest {
             assertEquals(widget.width/2f,rect.centerX(),2f)
             assertEquals(widget.height/2f,rect.centerY(),2f)
         }
+        android.os.SystemClock.sleep(1000) // Let the compositor present the transformed WebView.
         screenshot("07-alert-content")
         rule.runOnIdle { root.removeView(widget);widget.destroy() }
     }
