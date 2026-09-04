@@ -36,6 +36,21 @@ class AppModel(app: Application) : AndroidViewModel(app) {
     var twitchLogin by mutableStateOf(store.get("twitch-login")); private set
     var alertRevision by mutableIntStateOf(0); private set
     var doneruWidgetURL by mutableStateOf(store.get("doneru-widget-url")); private set
+    var extraWidgetURLs by mutableStateOf((1 until 5).map { store.get("standalone-widget-$it") }); private set
+    fun standaloneWidgetURL(index:Int):String {
+        require(index in 0 until 5)
+        return if(index==0)doneruWidgetURL else extraWidgetURLs[index-1]
+    }
+    fun saveStandaloneWidget(index:Int,raw:String) {
+        require(index in 0 until 5)
+        if(index==0) {saveDoneruWidget(raw);return}
+        val value=raw.trim()
+        require(value.isBlank() || safeWidgetURL(value)) {"HTTPSのウィジェットURLを確認してください"}
+        store.put("standalone-widget-$index",value)
+        extraWidgetURLs=extraWidgetURLs.toMutableList().apply {this[index-1]=value}
+        alertRevision++
+        if(value.isNotBlank())changeSettings(settings.copy(alertsVisible=true))
+    }
     fun saveDoneruWidget(raw: String) {
         val value=raw.trim()
         require(value.isBlank() || safeWidgetURL(value)) { "HTTPSのAlert Box URLを確認してください" }
@@ -45,6 +60,7 @@ class AppModel(app: Application) : AndroidViewModel(app) {
     fun activeAlertURLs(): Map<String,String> {
         val urls=channels.filter { it.enabled }.associate { it.id to alertURL(it) }.filterValues { it.isNotBlank() }.toMutableMap()
         if(doneruWidgetURL.isNotBlank()) urls["doneru-standalone"]=doneruWidgetURL
+        extraWidgetURLs.forEachIndexed { index,url -> if(url.isNotBlank())urls["standalone-widget-${index+1}"]=url }
         return urls
     }
     private val api = NetworkApi()

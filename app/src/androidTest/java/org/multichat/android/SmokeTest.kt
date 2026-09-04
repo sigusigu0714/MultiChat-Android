@@ -87,6 +87,22 @@ class SmokeTest {
             assertTrue(vm.channels.isEmpty())
             assertEquals("",vm.store.get("kick-bad"))
         }
+        rule.onNodeWithTag("widget-url-4").performScrollTo().performTextInput("https://example.invalid/fifth")
+        rule.onNodeWithTag("save-widget-4").performScrollTo().performClick()
+        rule.runOnIdle {
+            val vm=rule.activity.model
+            assertEquals("https://example.invalid/fifth",vm.standaloneWidgetURL(4))
+            assertEquals(vm.standaloneWidgetURL(4),SecureStore(rule.activity).get("standalone-widget-4"))
+            for(index in 0 until 4)vm.saveStandaloneWidget(index,"https://example.invalid/widget-$index")
+            assertEquals(5,vm.activeAlertURLs().size)
+            assertTrue(runCatching {vm.saveStandaloneWidget(5,"https://example.invalid/sixth")}.isFailure)
+            assertTrue(runCatching {vm.saveStandaloneWidget(2,"http://example.invalid/unsafe")}.isFailure)
+            assertEquals("https://example.invalid/widget-2",vm.standaloneWidgetURL(2))
+            vm.saveStandaloneWidget(2,"")
+            assertEquals(4,vm.activeAlertURLs().size)
+        }
+        screenshot("08-five-widgets")
+        rule.runOnIdle {for(index in 0 until 5)rule.activity.model.saveStandaloneWidget(index,"")}
         rule.onNodeWithContentDescription("閉じる").performClick()
         rule.waitForIdle()
         // A small alert on a large transparent desktop canvas, using a real WebView.

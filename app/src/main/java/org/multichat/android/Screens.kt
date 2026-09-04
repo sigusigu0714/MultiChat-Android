@@ -179,18 +179,23 @@ private fun Platform.color() = when(this) { Platform.TWITCH -> Color(0xFFAC85FF)
         }
         Section("翻訳") { Toggle("自動で日本語に翻訳",s.autoTranslate) {vm.changeSettings(s.copy(autoTranslate=it))}; Toggle("原文も表示",s.showOriginal) {vm.changeSettings(s.copy(showOriginal=it))}; Text("初回は言語モデルをダウンロードします。その後の翻訳は端末内で処理します。",style=MaterialTheme.typography.bodySmall) }
         Section("重複除去") { Toggle("Twitch統合チャットの重複を除去",s.integratedDedupe) {vm.changeSettings(s.copy(integratedDedupe=it))}; Text("判定時間 ${"%.1f".format(s.duplicateWindow)}秒"); Slider(s.duplicateWindow,{vm.changeSettings(s.copy(duplicateWindow=it))},valueRange=.5f..10f); Text("同じメッセージIDの再受信は常に除去します。",style=MaterialTheme.typography.bodySmall) }
-        Section("どねる（チャット連携なしで使えます）") {
-            var draft by remember { mutableStateOf(vm.doneruWidgetURL) }
-            var message by remember { mutableStateOf("") }
-            Text("どねるのAlert Boxにある「アドレス表示」でコピーしたURLを入力してください。寄付ページのURLではありません。")
-            Field("どねる Alert Box URL（HTTPS）",draft,{draft=it;message=""},secret=true,tag="doneru-url")
-            Button(onClick={runCatching {vm.saveDoneruWidget(draft)}.onSuccess {message="保存しました。設定を閉じ、MultiChat画面でどねるの通知テストを実行してください。"}.onFailure {message="HTTPSのAlert Box URLを確認してください"}},modifier=Modifier.testTag("save-doneru")) {Text("どねるを保存して再生")}
-            TextButton(onClick={vm.saveDoneruWidget("");draft="";message="停止しました。"},modifier=Modifier.testTag("delete-doneru")) {Text("どねるを停止・削除")}
-            if(message.isNotBlank()) Text(message)
-            Text("URLは端末内で暗号化して保存します。アプリを前面で使用してください。",style=MaterialTheme.typography.bodySmall)
+        Section("ウィジェット（最大5個）") {
+            Text("どねる・StreamElements・StreamlabsのウィジェットURLを登録できます。チャット連携は不要です。")
+            repeat(5) { index ->
+                var draft by remember(index) { mutableStateOf(vm.standaloneWidgetURL(index)) }
+                var message by remember(index) { mutableStateOf("") }
+                Text("ウィジェット ${index+1}",style=MaterialTheme.typography.titleMedium)
+                Field("ウィジェットURL（HTTPS）",draft,{draft=it;message=""},secret=true,tag=if(index==0)"doneru-url" else "widget-url-$index")
+                Row(horizontalArrangement=Arrangement.spacedBy(8.dp)) {
+                    Button(onClick={runCatching {vm.saveStandaloneWidget(index,draft)}.onSuccess {message="保存しました。MultiChat画面で通知をテストしてください。"}.onFailure {message="HTTPSのウィジェットURLを確認してください"}},modifier=Modifier.testTag(if(index==0)"save-doneru" else "save-widget-$index")) {Text("保存して再生")}
+                    TextButton(onClick={vm.saveStandaloneWidget(index,"");draft="";message="停止しました。"},modifier=Modifier.testTag(if(index==0)"delete-doneru" else "delete-widget-$index")) {Text("停止・削除")}
+                }
+                if(message.isNotBlank())Text(message)
+            }
+            Text("登録済みのどねるはウィジェット1に引き継ぎます。URLは端末内で暗号化して保存します。",style=MaterialTheme.typography.bodySmall)
         }
         Section("アラート") { Toggle("アラートを画面に表示",s.alertsVisible) {vm.changeSettings(s.copy(alertsVisible=it))}; TextButton(onClick=vm::refreshAlerts) {Text("アラートウィジェットを再読み込み")}; TextButton(onClick=notifications) {Text("配信アラートの通知を許可")} }
-        Text("MultiChat for Android 1.0.1\n接続先・認証情報は端末内で暗号化して保存します。",style=MaterialTheme.typography.bodySmall); Spacer(Modifier.height(16.dp))
+        Text("MultiChat for Android 1.0.2\n接続先・認証情報は端末内で暗号化して保存します。",style=MaterialTheme.typography.bodySmall); Spacer(Modifier.height(16.dp))
     }
 }
 @Composable private fun ChannelScreen(vm: AppModel) {
