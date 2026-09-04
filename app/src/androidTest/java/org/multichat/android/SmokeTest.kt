@@ -135,5 +135,43 @@ class SmokeTest {
         android.os.SystemClock.sleep(1000) // Let the compositor present the transformed WebView.
         screenshot("07-alert-content")
         rule.runOnIdle { root.removeView(widget);widget.destroy() }
+        // Real document-start injection + WebMessage bridge + native FIFO.
+        // These HTML fixtures have no external resources and emit no provider events.
+        val queueWidgets=mutableListOf<AlertWidget>()
+        val intervals=java.util.concurrent.ConcurrentHashMap<Int,Pair<Long,Long>>()
+        lateinit var queueSession:WidgetQueueSession
+        rule.runOnIdle {
+            queueSession=WidgetQueueSession {}
+            for(index in 0..2) {
+                val item=AlertWidget(rule.activity,false)
+                queueWidgets.add(item);root.addView(item,android.widget.FrameLayout.LayoutParams(-1,-1))
+                assertTrue(queueSession.attach(item,"https://doneru.jp/fixture-$index"))
+                item.web.loadDataWithBaseURL("https://doneru.jp/fixture-$index","""
+                    <html><body><p>QUEUE FIXTURE $index</p><script>
+                    window.playbackLog=[];
+                    class Box {
+                      constructor(){this.resolver=null}push(){}clear(){}
+                      startEvent(){window.playbackLog.push(Date.now());return new Promise(resolve=>setTimeout(()=>{window.playbackLog.push(Date.now());resolve()},800))}
+                    }
+                    new Box().startEvent();
+                    </script></body></html>
+                ""","text/html","UTF-8",null)
+            }
+        }
+        rule.waitUntil(20000) {
+            rule.activity.runOnUiThread {
+                queueWidgets.forEachIndexed { index,item ->
+                    item.web.evaluateJavascript("window.playbackLog") { raw ->
+                        runCatching {org.json.JSONArray(raw)}.getOrNull()?.takeIf {it.length()==2}?.let {
+                            intervals[index]=it.getLong(0) to it.getLong(1)
+                        }
+                    }
+                }
+            }
+            intervals.size==3
+        }
+        val ordered=intervals.values.sortedBy {it.first}
+        assertTrue(ordered.zipWithNext().all {(a,b)->a.second<=b.first})
+        rule.runOnIdle {queueSession.close {queueWidgets.forEach {root.removeView(it);it.destroy()}}}
     }
 }
