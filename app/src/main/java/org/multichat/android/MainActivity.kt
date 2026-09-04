@@ -44,7 +44,7 @@ class MainActivity : ComponentActivity() {
     private fun updateOverlay(show: Boolean) {
         if(!::alertHost.isInitialized) return
         if(model.settings.awake) window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON) else window.clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
-        alertHost.update(model.channels.filter { it.enabled }.associate { it.id to model.alertURL(it) }.filterValues { it.isNotBlank() },model.alertRevision,show && model.settings.alertsVisible)
+        alertHost.update(model.activeAlertURLs(),model.alertRevision,show && model.settings.alertsVisible)
     }
 }
 class AlertHost(context: android.content.Context) : FrameLayout(context) {

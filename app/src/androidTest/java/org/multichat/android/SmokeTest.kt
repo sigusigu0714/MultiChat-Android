@@ -55,6 +55,20 @@ class SmokeTest {
         rule.onNodeWithTag("open-settings").performClick()
         rule.onNodeWithText("接続セットアップ").assertExists()
         screenshot("05-settings")
+        // Doneru can be configured without connecting any chat account or server.
+        rule.onNodeWithTag("doneru-url").performScrollTo().performTextInput("https://example.invalid/alert-box?key=test-only")
+        rule.onNodeWithTag("save-doneru").performScrollTo().performClick()
+        rule.runOnIdle {
+            val vm=rule.activity.model
+            assertTrue(vm.channels.isEmpty())
+            assertEquals("https://example.invalid/alert-box?key=test-only",vm.activeAlertURLs()["doneru-standalone"])
+            assertEquals(vm.doneruWidgetURL,SecureStore(rule.activity).get("doneru-widget-url"))
+            assertFalse(rule.activity.getSharedPreferences("secure-v1",0).getString("doneru-widget-url","")!!.contains("test-only"))
+        }
+        screenshot("06-doneru-settings")
+        rule.onNodeWithTag("delete-doneru").performScrollTo().performClick()
+        rule.runOnIdle { assertFalse(rule.activity.model.activeAlertURLs().containsKey("doneru-standalone")) }
+
         rule.runOnIdle {
             val host=AlertHost(rule.activity)
             host.update(mapOf("fixture" to "https://example.invalid/widget"),0,true)

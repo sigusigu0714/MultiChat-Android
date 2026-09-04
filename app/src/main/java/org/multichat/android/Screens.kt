@@ -179,8 +179,18 @@ private fun Platform.color() = when(this) { Platform.TWITCH -> Color(0xFFAC85FF)
         }
         Section("翻訳") { Toggle("自動で日本語に翻訳",s.autoTranslate) {vm.changeSettings(s.copy(autoTranslate=it))}; Toggle("原文も表示",s.showOriginal) {vm.changeSettings(s.copy(showOriginal=it))}; Text("初回は言語モデルをダウンロードします。その後の翻訳は端末内で処理します。",style=MaterialTheme.typography.bodySmall) }
         Section("重複除去") { Toggle("Twitch統合チャットの重複を除去",s.integratedDedupe) {vm.changeSettings(s.copy(integratedDedupe=it))}; Text("判定時間 ${"%.1f".format(s.duplicateWindow)}秒"); Slider(s.duplicateWindow,{vm.changeSettings(s.copy(duplicateWindow=it))},valueRange=.5f..10f); Text("同じメッセージIDの再受信は常に除去します。",style=MaterialTheme.typography.bodySmall) }
+        Section("どねる（チャット連携なしで使えます）") {
+            var draft by remember { mutableStateOf(vm.doneruWidgetURL) }
+            var message by remember { mutableStateOf("") }
+            Text("どねるのAlert Boxにある「アドレス表示」でコピーしたURLを入力してください。寄付ページのURLではありません。")
+            Field("どねる Alert Box URL（HTTPS）",draft,{draft=it;message=""},secret=true,tag="doneru-url")
+            Button(onClick={runCatching {vm.saveDoneruWidget(draft)}.onSuccess {message="保存しました。設定を閉じ、MultiChat画面でどねるの通知テストを実行してください。"}.onFailure {message="HTTPSのAlert Box URLを確認してください"}},modifier=Modifier.testTag("save-doneru")) {Text("どねるを保存して再生")}
+            TextButton(onClick={vm.saveDoneruWidget("");draft="";message="停止しました。"},modifier=Modifier.testTag("delete-doneru")) {Text("どねるを停止・削除")}
+            if(message.isNotBlank()) Text(message)
+            Text("URLは端末内で暗号化して保存します。アプリを前面で使用してください。",style=MaterialTheme.typography.bodySmall)
+        }
         Section("アラート") { Toggle("アラートを画面に表示",s.alertsVisible) {vm.changeSettings(s.copy(alertsVisible=it))}; TextButton(onClick=vm::refreshAlerts) {Text("アラートウィジェットを再読み込み")}; TextButton(onClick=notifications) {Text("配信アラートの通知を許可")} }
-        Text("MultiChat for Android 1.0.0\n接続先・認証情報は端末内で暗号化して保存します。",style=MaterialTheme.typography.bodySmall); Spacer(Modifier.height(16.dp))
+        Text("MultiChat for Android 1.0.1\n接続先・認証情報は端末内で暗号化して保存します。",style=MaterialTheme.typography.bodySmall); Spacer(Modifier.height(16.dp))
     }
 }
 @Composable private fun ChannelScreen(vm: AppModel) {
@@ -250,7 +260,7 @@ private fun Platform.color() = when(this) { Platform.TWITCH -> Color(0xFFAC85FF)
         Text("ご自身のOBSリレーと管理者トークンを登録してください。",style=MaterialTheme.typography.bodyLarge)
         Field("OBSリレーURL（WSS）",url,{url=it},tag="obs-url"); Field(if(vm.hasObsToken()) "新しい管理者トークン（登録済み）" else "管理者トークン",token,{token=it},secret=true,tag="obs-token")
         if(error.isNotBlank()) Text(error,color=MaterialTheme.colorScheme.error)
-        Button(onClick={runCatching {require(url.isNotBlank());require(token.isNotBlank() || (vm.hasObsToken() && url.trim()==vm.profile.obsRelayURL));vm.saveProfile(vm.profile.copy(obsRelayURL=url.trim()));if(token.isNotBlank()) vm.saveObsToken(token);token="";vm.notice="OBS設定を保存しました"}.onFailure {error="WSSのURLと管理者トークンを確認してください"}},modifier=Modifier.fillMaxWidth()) {Text("保存して接続")}
+        Button(onClick={runCatching {require(url.isNotBlank());require(token.isNotBlank() || (vm.hasObsToken() && url.trim()==vm.profile.obsRelayURL));vm.saveProfile(vm.profile.copy(obsRelayURL=url.trim()));if(token.isNotBlank()) vm.saveObsToken(token);token="";vm.notice="OBS設定を保存しました"}.onSuccess {error=""}.onFailure {error="WSSのURLと管理者トークンを確認してください"}},modifier=Modifier.fillMaxWidth()) {Text("保存して接続")}
         OutlinedButton(onClick={vm.saveObsToken("");token=""},modifier=Modifier.fillMaxWidth()) {Text("トークンを削除して切断")}
     }
 }

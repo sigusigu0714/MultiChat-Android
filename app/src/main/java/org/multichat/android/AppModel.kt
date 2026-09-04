@@ -35,6 +35,18 @@ class AppModel(app: Application) : AndroidViewModel(app) {
     var hiddenDuplicates by mutableIntStateOf(0); private set
     var twitchLogin by mutableStateOf(store.get("twitch-login")); private set
     var alertRevision by mutableIntStateOf(0); private set
+    var doneruWidgetURL by mutableStateOf(store.get("doneru-widget-url")); private set
+    fun saveDoneruWidget(raw: String) {
+        val value=raw.trim()
+        require(value.isBlank() || safeWidgetURL(value)) { "HTTPSのAlert Box URLを確認してください" }
+        store.put("doneru-widget-url",value); doneruWidgetURL=value; alertRevision++
+        if(value.isNotBlank()) changeSettings(settings.copy(alertsVisible=true))
+    }
+    fun activeAlertURLs(): Map<String,String> {
+        val urls=channels.filter { it.enabled }.associate { it.id to alertURL(it) }.filterValues { it.isNotBlank() }.toMutableMap()
+        if(doneruWidgetURL.isNotBlank()) urls["doneru-standalone"]=doneruWidgetURL
+        return urls
+    }
     private val api = NetworkApi()
     private val translator = LocalTranslator()
     private val translationSlots = Semaphore(2)
