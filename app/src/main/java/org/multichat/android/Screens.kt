@@ -180,7 +180,7 @@ private fun Platform.color() = when(this) { Platform.TWITCH -> Color(0xFFAC85FF)
         Section("翻訳") { Toggle("自動で日本語に翻訳",s.autoTranslate) {vm.changeSettings(s.copy(autoTranslate=it))}; Toggle("原文も表示",s.showOriginal) {vm.changeSettings(s.copy(showOriginal=it))}; Text("初回は言語モデルをダウンロードします。その後の翻訳は端末内で処理します。",style=MaterialTheme.typography.bodySmall) }
         Section("重複除去") { Toggle("Twitch統合チャットの重複を除去",s.integratedDedupe) {vm.changeSettings(s.copy(integratedDedupe=it))}; Text("判定時間 ${"%.1f".format(s.duplicateWindow)}秒"); Slider(s.duplicateWindow,{vm.changeSettings(s.copy(duplicateWindow=it))},valueRange=.5f..10f); Text("同じメッセージIDの再受信は常に除去します。",style=MaterialTheme.typography.bodySmall) }
         Section("ウィジェット（最大5個）") {
-            Toggle("通知を順番に再生（試験運用）",vm.sequentialAlerts) {vm.setSequentialAlerts(it)}
+            Toggle("通知を順番に再生（試験運用）",vm.sequentialAlerts) {vm.changeSequentialAlerts(it)}
             if(vm.sequentialAlerts) Text(vm.alertQueueStatus,style=MaterialTheme.typography.bodySmall)
             Text("StreamElements・Streamlabs・どねるの通知を、アプリが受け付けた順に再生します。未対応のカスタム形式では停止する場合があります。再読み込みで待ち通知を取り消します。",style=MaterialTheme.typography.bodySmall)
             Text("どねる・StreamElements・StreamlabsのウィジェットURLを登録できます。チャット連携は不要です。")

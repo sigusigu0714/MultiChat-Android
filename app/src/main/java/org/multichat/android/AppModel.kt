@@ -37,7 +37,7 @@ class AppModel(app: Application) : AndroidViewModel(app) {
     var alertRevision by mutableIntStateOf(0); private set
     var sequentialAlerts by mutableStateOf(store.get("sequential-alerts")=="true"); private set
     var alertQueueStatus by mutableStateOf("順番再生：接続待ち")
-    fun setSequentialAlerts(value:Boolean) {
+    fun changeSequentialAlerts(value:Boolean) {
         store.put("sequential-alerts",value.toString());sequentialAlerts=value;alertRevision++
     }
     var doneruWidgetURL by mutableStateOf(store.get("doneru-widget-url")); private set
