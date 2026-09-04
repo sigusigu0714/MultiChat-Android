@@ -35,6 +35,11 @@ class AppModel(app: Application) : AndroidViewModel(app) {
     var hiddenDuplicates by mutableIntStateOf(0); private set
     var twitchLogin by mutableStateOf(store.get("twitch-login")); private set
     var alertRevision by mutableIntStateOf(0); private set
+    var sequentialAlerts by mutableStateOf(store.get("sequential-alerts")=="true"); private set
+    var alertQueueStatus by mutableStateOf("順番再生：接続待ち")
+    fun setSequentialAlerts(value:Boolean) {
+        store.put("sequential-alerts",value.toString());sequentialAlerts=value;alertRevision++
+    }
     var doneruWidgetURL by mutableStateOf(store.get("doneru-widget-url")); private set
     var extraWidgetURLs by mutableStateOf((1 until 5).map { store.get("standalone-widget-$it") }); private set
     fun standaloneWidgetURL(index:Int):String {

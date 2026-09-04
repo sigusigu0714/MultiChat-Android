@@ -20,6 +20,13 @@ class AlertWidget(context: Context, private val fitContent: Boolean) : FrameLayo
     private var focus: RectF? = null
     private var destroyed = false
     private var measuring = false
+    private val blankCallbacks = mutableListOf<() -> Unit>()
+    private var blanking = false
+    fun blankForQueue(done: () -> Unit) {
+        if(destroyed) {done();return}
+        blankCallbacks.add(done)
+        if(!blanking) {blanking=true;web.stopLoading();web.loadUrl("about:blank")}
+    }
     var fittedContent: RectF? = null; private set
     private val measureContent = object : Runnable {
         override fun run() {
@@ -45,7 +52,14 @@ class AlertWidget(context: Context, private val fitContent: Boolean) : FrameLayo
         web.isFocusable=false;web.isClickable=false
         web.webViewClient=object:WebViewClient() {
             override fun shouldOverrideUrlLoading(view:WebView,request:WebResourceRequest)=!safeWidgetURL(request.url.toString())
-            override fun onPageFinished(view:WebView,url:String?) { removeCallbacks(measureContent);post(measureContent) }
+            override fun onPageFinished(view:WebView,url:String?) {
+                if(blanking && url=="about:blank") {
+                    blanking=false
+                    val callbacks=blankCallbacks.toList();blankCallbacks.clear();callbacks.forEach {it()}
+                    return
+                }
+                removeCallbacks(measureContent);post(measureContent)
+            }
         }
         addView(web,LayoutParams(-1,-1))
     }
